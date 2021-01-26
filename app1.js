@@ -6,9 +6,7 @@ const mongoose = require('mongoose');
 const User = require('./models/User');
 const session = require('express-session');
 const passport = require('passport');
-const passportLocalMongoose = require('passport-local-mongoose');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const findOrCreate = require('mongoose-findorcreate');
 
 const app = express();
 
@@ -82,9 +80,28 @@ app.get('/login', (req, res) => {
     res.render('login');
 });
 
-app.get('/secrets', (req, res) => {
+app.get('/secrets', async (req, res) => {
+    let users;
+    try {
+        users = await User.find({secret: {$ne: null}});
+        if (users) {
+            console.log("Users: ", users);
+            res.render('secrets', {usersWithSecrets: users});
+        }
+        else {
+            console.log('No user has secret.');
+            res.render('secrets');
+        }
+    }
+    catch (e) {
+        console.log(e);
+        res.redirect('/');
+    }
+});
+
+app.get('/submit', (req, res) => {
     if (req.isAuthenticated()) {
-        res.render('secrets');
+        res.render('submit');
     }
     else {
         res.redirect('/login');
@@ -130,7 +147,26 @@ app.post('/login', (req, res) => {
     });
 });
 
-
+app.post('/submit', async (req, res) => {
+    console.log(req.user.id);
+    let user;
+    try {
+        user = await User.findById(req.user.id);
+        if (user) {
+            user.secret = req.body.secret;
+            await user.save();
+            res.redirect('/secrets');
+        }
+        else {
+            console.log('User not found.');
+            res.redirect('/login');
+        }
+    }
+    catch (e) {
+        console.log(e);
+        res.redirect('/login');
+    }
+});
 
 app.listen(3000, () => {
     console.log('Server running on port 3000');
